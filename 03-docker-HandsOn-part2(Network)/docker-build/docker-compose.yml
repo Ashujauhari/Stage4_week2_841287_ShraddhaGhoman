@@ -1,0 +1,66 @@
+version: "3.6"
+services:
+  db:
+    image: mysql:5.7
+    container_name: mysqldb
+    ports: 
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_USER=root
+      - MYSQL_DATABASE=employee_database
+    networks: 
+      - employee-network
+    volumes:
+      - ./mysqldb:/var/lib/mysql
+      - ./dbscripts:/docker-entrypoint-initdb.d
+  
+  eureka:
+      image: eureka-server
+      build: ./EurekaDiscoveryServer
+      container_name: eureka-server
+      ports: 
+        - 8090:8090
+      networks: 
+      - employee-network
+  zuul:
+    image: zuul-gateway 
+    build: ./zuul-gateway 
+    container_name: zuul-service
+    ports: 
+      - 8703:8703
+    depends_on: 
+      - eureka
+    networks: 
+      - employee-network
+  
+  authentication:
+      image: authentication-service
+      build: ./authentication-service
+      container_name: authentication-service
+      ports: 
+        - 8702:8702
+      depends_on: 
+        - eureka
+        - zuul
+      networks: 
+      - employee-network
+      
+  employee-service:
+      image: employee-service
+      build: ./employee-service
+      container_name: employee-service
+      ports: 
+        - 8701:8701
+      depends_on: 
+        - db
+        - eureka
+        - zuul
+        - authentication
+      networks: 
+        - employee-network
+      # entrypoint: ./wait-for-it.sh db:3306 --echo "mysql is up"
+
+networks:
+  employee-network:
+    name: employee-network
